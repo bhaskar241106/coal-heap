@@ -13,14 +13,6 @@ The workflow progresses from raw images through camera tracking, dense stereo re
 
 ```mermaid
 graph TD
-    %% Define styles
-    classDef input fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef sfm fill:#bbf,stroke:#333,stroke-width:1px;
-    classDef mvs fill:#bfb,stroke:#333,stroke-width:1px;
-    classDef calib fill:#fdd,stroke:#333,stroke-width:2px;
-    classDef output fill:#dfd,stroke:#333,stroke-width:2px;
-
-    %% Nodes
     A[46 UAV Stockpile Images] -->|SIFT Feature Extraction| B(SfM Sparse Reconstruction)
     B -->|Exhaustive Matching & Triangulation| C(COLMAP Cameras, Images & Points3D)
     C -->|Radial Distortion Removal| D(Dense Stereo Matching - PatchMatch)
@@ -42,12 +34,6 @@ graph TD
     N -->|Boundary RANSAC + Refinement| O(Mesh Slicing & Capping at z=0)
     O -->|Prism column integration| P(Volume calculation & Sensitivity Analysis)
     P --> Q[Final Report: output/volume.txt]
-
-    class A input;
-    class B,C sfm;
-    class D,E,F mvs;
-    class G,I,J,K,L,M,N,O,P calib;
-    class Q output;
 ```
 
 ---
