@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boruszyn Coal Stockpile Digital Twin Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Three.js and PLYLoader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/PLYLoader.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #a855f7;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --glow-cyan: rgba(6, 182, 212, 0.4);
+            --glow-purple: rgba(168, 85, 247, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* App Layout */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header Style */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 24px;
+        }
+
+        .header-title h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, var(--accent-cyan) 70%, var(--accent-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-title p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Grid System */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glass Card style */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            border-color: rgba(6, 182, 212, 0.2);
+            box-shadow: 0 12px 40px 0 rgba(6, 182, 212, 0.05);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 12px;
+        }
+
+        .card-title i {
+            color: var(--accent-cyan);
+        }
+
+        /* 3D Viewer Container */
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            height: 550px;
+            background: #040711;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+        }
+
+        #canvas-3d {
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        .viewer-controls {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .viewer-btn {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--card-border);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(4px);
+        }
+
+        .viewer-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--glow-cyan);
+        }
+
+        .viewer-btn.active {
+            background: var(--accent-cyan);
+            color: #0b0f19;
+            border-color: var(--accent-cyan);
+        }
+
+        .viewer-legend {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 10;
+            font-size: 11px;
+            backdrop-filter: blur(4px);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        /* Stats Blocks */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 4px;
+        }
+
+        .stat-unit {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Large Volumetric Panel */
+        .volume-display {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 24px;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+
+        .volume-display h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .volume-number {
+            font-size: 48px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(90deg, #fff, var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px var(--glow-cyan);
+            margin-bottom: 8px;
+        }
+
+        .volume-uncertainty {
+            font-size: 16px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .volume-subtext {
+            font-size: 12px;
+            color: var(--text-muted);
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        /* Tables */
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--card-border);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        tr.selected-row {
+            background: rgba(6, 182, 212, 0.08);
+            border-left: 3px solid var(--accent-cyan);
+        }
+
+        /* Sliders */
+        .slider-control {
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .slider-value {
+            color: var(--accent-cyan);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--glow-cyan);
+            transition: all 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Tabs */
+        .tabs-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 8px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-color);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Status blocks */
+        .validation-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .validation-label {
+            font-weight: 500;
+        }
+
+        .validation-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .badge-passed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-failed {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .info-item {
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .info-title {
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .info-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: bold;
+        }
+
+        /* 3D Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(4, 7, 17, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            transition: opacity 0.5s;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(6, 182, 212, 0.1);
+            border-top: 3px solid var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Dashboard Header -->
+        <header>
+            <div class="header-title">
+                <h1>Boruszyn Coal Stockpile Digital Twin</h1>
+                <p>UAV Photogrammetry Stockpile Volumetric Audit & Base Uncertainty Analysis</p>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                Live Server Connected
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+            
+            <!-- Left Column: 3D Model Viewer & Controls -->
+            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-cube"></i> 3D Digital Twin Viewer</span>
+                        <span style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">mesh.ply</span>
+                    </div>
+                    
+                    <div class="viewer-container">
+                        <!-- Loading Overlay -->
+                        <div class="loading-overlay" id="loading-overlay">
+                            <div class="spinner"></div>
+                            <div class="loading-text" id="loading-text">Initializing 3D Viewer...</div>
+                        </div>
+                        
+                        <!-- Canvas for WebGL -->
+                        <canvas id="canvas-3d"></canvas>
+                        
+                        <!-- Interactive Mode Legend -->
+                        <div class="viewer-legend">
+                            <div style="font-weight: bold; margin-bottom: 6px;">Elevation Color Map</div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgb(253, 231, 37);"></div>
+                                <span>Peak (22.26 m)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgb(33, 145, 140);"></div>
+                                <span>Mid Elevation</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgb(68, 1, 84);"></div>
+                                <span>Base / Ground</span>
+                            </div>
+                        </div>
+
+                        <!-- 3D Controls -->
+                        <div class="viewer-controls">
+                            <button class="viewer-btn active" id="btn-mesh" onclick="setViewMode('mesh')"><i class="fa-solid fa-square"></i> Shaded</button>
+                            <button class="viewer-btn" id="btn-wireframe" onclick="setViewMode('wireframe')"><i class="fa-solid fa-border-none"></i> Wireframe</button>
+                            <button class="viewer-btn" id="btn-points" onclick="setViewMode('points')"><i class="fa-solid fa-ellipsis"></i> Pointcloud</button>
+                            <button class="viewer-btn active" id="btn-auto-rotate" onclick="toggleAutoRotate()"><i class="fa-solid fa-rotate"></i> Auto-Spin</button>
+                            <button class="viewer-btn" onclick="reset3DCamera()"><i class="fa-solid fa-expand"></i> Reset View</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-title">Bounding Box Footprint</div>
+                        <div class="info-val" id="info-bbox-dims">244.11m x 215.56m (52,621 m²)</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-title">Active Stockpile Footprint</div>
+                        <div class="info-val" id="info-active-area">11,401.3 m²</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-title">Max Stockpile Height</div>
+                        <div class="info-val" id="info-max-height">22.26 m</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-title">Average height (Active Area)</div>
+                        <div class="info-val" id="info-avg-height">3.51 m</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Volumetric Numbers, Calibration & Sensitivities -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                
+                <!-- Main Volumetric Card -->
+                <div class="card">
+                    <div class="volume-display">
+                        <h2>Calibrated Stockpile Volume</h2>
+                        <div class="volume-number" id="vol-nominal">38,370 m³</div>
+                        <div class="volume-uncertainty" id="vol-combined-rss">38,370 ± 5,300 m³</div>
+                        <div class="volume-subtext">
+                            Reported with Combined Root Sum Square (RSS) uncertainty propagating scale calibration standard deviation (std: 0.89) and ground plane placement sensitivity (active stockpile basis).
+                        </div>
+                    </div>
+
+                    <!-- Statistics grid -->
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-label">Calibration Scale</div>
+                            <div class="stat-value" id="stat-scale">19.57</div>
+                            <div class="stat-unit">meters/unit</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Scale Variation</div>
+                            <div class="stat-value" id="stat-cv">4.5%</div>
+                            <div class="stat-unit">CV metric</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Subset RMSE</div>
+                            <div class="stat-value" id="stat-rmse">2.99</div>
+                            <div class="stat-unit">meters</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs Card: Sensitivity and Calibration details -->
+                <div class="card">
+                    <div class="tabs-header">
+                        <button class="tab-btn active" onclick="switchTab('tab-sensitivity')">Ground-Plane Sensitivity</button>
+                        <button class="tab-btn" onclick="switchTab('tab-calibration')">Scale Subsets</button>
+                        <button class="tab-btn" onclick="switchTab('tab-validation')">Validation Checks</button>
+                    </div>
+
+                    <!-- TAB 1: Sensitivity Slider & Chart -->
+                    <div class="tab-content active" id="tab-sensitivity">
+                        <div style="height: 200px; position: relative; width: 100%;">
+                            <canvas id="chart-sensitivity"></canvas>
+                        </div>
+                        
+                        <div class="slider-control">
+                            <div class="slider-header">
+                                <span>Adjust Base Ground Plane Shift:</span>
+                                <span class="slider-value" id="slider-val">0.0 cm</span>
+                            </div>
+                            <input type="range" id="sensitivity-slider" min="-10" max="10" step="5" value="0" oninput="updateSensitivitySlider(this.value)">
+                            <div class="slider-ticks">
+                                <span>-10cm (Lower Base)</span>
+                                <span>0 (Nominal SVD)</span>
+                                <span>+10cm (Higher Base)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="info-grid" style="margin-top: 16px;">
+                            <div class="info-item">
+                                <div class="info-title">Active Sliced Volume</div>
+                                <div class="info-val" id="slide-vol">38,370 m³</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-title">Volume Change</div>
+                                <div class="info-val" id="slide-change">0.0%</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-title">Implied Avg Height</div>
+                                <div class="info-val" id="slide-height">3.37 m</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-title">Bounding Box Avg Height</div>
+                                <div class="info-val" id="slide-bbox-height">0.73 m</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Calibration Subsets & LOO Table -->
+                    <div class="tab-content" id="tab-calibration">
+                        <div style="font-weight: 600; font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">GCP Calibration Subsets Residuals (lowest RMSE selected)</div>
+                        <div class="table-wrapper">
+                            <table id="subsets-table">
+                                <thead>
+                                    <tr>
+                                        <th>Subset</th>
+                                        <th>Scale (m/u)</th>
+                                        <th>RMSE (m)</th>
+                                        <th>Max Err</th>
+                                        <th>CV</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div style="font-weight: 600; font-size: 13px; color: var(--text-muted); margin-top: 16px; margin-bottom: 8px;">Leave-One-Out (LOO) Calibration Stability</div>
+                        <div class="table-wrapper">
+                            <table id="loo-table">
+                                <thead>
+                                    <tr>
+                                        <th>Excluded</th>
+                                        <th>Scale Factor</th>
+                                        <th>RMSE (m)</th>
+                                        <th>Max Err</th>
+                                        <th>Diff %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: Programmatic Validation Checks -->
+                    <div class="tab-content" id="tab-validation">
+                        <div style="font-weight: 600; font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Automated Pipeline Range-Based Audit Assertions</div>
+                        <div id="validation-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                        
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 16px; line-height: 1.5;">
+                            <i class="fa-solid fa-circle-info" style="color: var(--accent-cyan); margin-right: 4px;"></i>
+                            These programmatic audits run dynamically during pipeline execution. They verify that scaling factors, volumetric limits, and outlier rejections fall within valid geological and mechanical bounds.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script file -->
+    <script src="dashboard.js"></script>
+</body>
+</html>

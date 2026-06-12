@@ -241,7 +241,7 @@ def calculate_integrated_volume(mesh, plane_normal, plane_origin):
     max_height = np.max(zs)
     mean_height = np.mean(zs)
     
-    return abs(total_volume), max_height, mean_height, abs(np.sum(areas))
+    return abs(total_volume), max_height, mean_height, abs(np.sum(areas)), transformed_mesh
 
 def main():
     sparse_dir = r"sparse/0_txt"
@@ -480,12 +480,16 @@ def main():
     
     for dz in offsets:
         shifted_origin = plane_origin + dz * normal
-        vol, max_h, mean_h, active_area = calculate_integrated_volume(scaled_mesh, normal, shifted_origin)
+        vol, max_h, mean_h, active_area, trans_mesh = calculate_integrated_volume(scaled_mesh, normal, shifted_origin)
         volumes[dz] = vol
         if abs(dz) < 1e-5:
             active_area_nominal = active_area
             nominal_max_height = max_h
             nominal_mean_height = mean_h
+            # Save calibrated, SVD-aligned mesh
+            calibrated_mesh_path = "output/mesh_calibrated.ply"
+            trans_mesh.export(calibrated_mesh_path)
+            print(f"Calibrated, SVD-aligned stockpile mesh saved to {calibrated_mesh_path}!")
         print(f"{dz*100:+.0f} cm{'':<10} | {vol:.2f} m3")
         
     nominal_volume = volumes[0.0]
@@ -663,6 +667,70 @@ def main():
             f.write(f"  - Offset {dz*100:+.0f} cm: Volume = {volumes[dz]:.2f} m3\n")
             
     print(f"\nReport successfully saved to {out_path}!")
+    
+    # Save JSON data for the dashboard
+    json_path = "output/volume_data.json"
+    import json
+    volume_data = {
+        "final_scale": float(final_scale),
+        "scale_std": float(scale_std),
+        "scale_cv": float(best_subset['cv']),
+        "nominal_volume": float(nominal_volume),
+        "nominal_volume_rounded": int(nominal_rounded),
+        "uncertainty_active": int(uncertainty),
+        "uncertainty_bbox": int(uncertainty_bbox_rounded),
+        "scale_vol_uncertainty": int(scale_vol_uncertainty_rounded),
+        "combined_active_uncertainty": int(combined_active_uncertainty_rounded),
+        "combined_bbox_uncertainty": int(combined_bbox_uncertainty_rounded),
+        "bbox_area": float(bbox_area),
+        "bbox_dx": float(bbox_dx),
+        "bbox_dy": float(bbox_dy),
+        "active_area": float(active_area_nominal),
+        "max_height": float(nominal_max_height),
+        "mean_height": float(nominal_mean_height),
+        "implied_avg_height_active": float(implied_avg_height_active),
+        "implied_avg_height_bbox": float(implied_avg_height_bbox),
+        "offsets": [float(x) for x in offsets],
+        "volumes_at_offsets": [float(volumes[x]) for x in offsets],
+        "inliers": list(inlier_keys),
+        "plausible_keys": list(plausible_keys),
+        "optimal_keys": list(optimal_keys),
+        "subsets": [
+            {
+                "keys": list(x['keys']),
+                "scale": float(x['scale']),
+                "mean_err": float(x['mean_err']),
+                "max_err": float(x['max_err']),
+                "rmse": float(x['rmse']),
+                "cv": float(x['cv'])
+            } for x in all_subsets
+        ],
+        "loo_validation": []
+    }
+    
+    # Calculate LOO validation details for JSON output
+    for k in optimal_keys:
+        loo_keys = [x for x in optimal_keys if x != k]
+        c_loo, R_loo, T_loo = umeyama_alignment(
+            np.array([triangulated_pts[x] for x in loo_keys]), 
+            np.array([gt_pts[x] for x in loo_keys])
+        )
+        src_loo = np.array([triangulated_pts[x] for x in loo_keys])
+        dst_loo = np.array([gt_pts[x] for x in loo_keys])
+        aligned_src_loo = c_loo * np.dot(src_loo, R_loo.T) + T_loo
+        residuals_loo = np.linalg.norm(aligned_src_loo - dst_loo, axis=1)
+        volume_data["loo_validation"].append({
+            "excluded": k,
+            "scale": float(c_loo),
+            "diff_pct": float(abs(c_loo - final_scale)/final_scale*100.0),
+            "mean_err": float(np.mean(residuals_loo)),
+            "max_err": float(np.max(residuals_loo)),
+            "rmse": float(np.sqrt(np.mean(residuals_loo**2)))
+        })
+        
+    with open(json_path, "w", encoding="utf-8") as jf:
+        json.dump(volume_data, jf, indent=2)
+    print(f"JSON data successfully saved to {json_path}!")
 
 if __name__ == '__main__':
     main()
