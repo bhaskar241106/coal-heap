@@ -1,0 +1,64 @@
+Boruszyn Coal Heap Volume Estimation Report (Robust Calibration)
+=================================================================
+
+1. Scale Factor Calibration
+---------------------------
+  - Plausible GCPs evaluated: GCP3,GCP4,GCP5,GCP6 (extreme outliers rejected)
+  - Selected Optimal Subset: GCP3,GCP4,GCP5
+  - Optimal Scale Factor: 19.571642 meters/unit
+  - Scale Standard Deviation: 0.8851 m/unit
+  - Selected Subset RMSE: 2.99 m
+  - Selected Subset Scale Coefficient of Variation (CV): 0.0454
+  - Subset Mean Error: 2.86 m, Max Error: 3.92 m
+
+2. Leave-One-Out (LOO) Validation
+---------------------------------
+  - Exclude GCP3: Scale = 18.5545 m/unit (diff: 5.20%)
+  - Exclude GCP4: Scale = 20.6743 m/unit (diff: 5.63%)
+  - Exclude GCP5: Scale = 19.2201 m/unit (diff: 1.80%)
+
+3. Ground Plane SVD Verification
+--------------------------------
+  - Boundary Heights Mean: 2.5857 m (Std Dev: 5.0128 m)
+  - Inlier Heights Mean: 0.0000 m (centered, verified no vertical bias)
+
+4. Volumetric Stockpile Results
+--------------------------------
+  - Nominal Stockpile Volume: 38370 m3
+  - Ground-Plane Sensitivity (Bounding Box, +/- 5 cm plane shift):
+    Volume Range: 35700 - 41000 m3
+    Sensitivity Format: 38370 +/- 2600 m3
+  - Ground-Plane Sensitivity (Active Footprint, +/- 10 cm plane shift):
+    Volume Range: 37270 - 39550 m3
+    Sensitivity Format: 38370 +/- 1140 m3
+  - Scale-Related Volume Uncertainty (propagated from scale standard deviation):
+    Volume Range: 33200 - 43600 m3
+    Uncertainty Format: 38370 +/- 5200 m3 (Relative: 13.57%)
+  - Combined Uncertainty (Root Sum Square of scale and ground-plane uncertainties):
+    - Bounding-Box Footprint Basis:
+      Volume Range: 32500 - 44200 m3
+      Combined Format: 38370 +/- 5800 m3
+    - Active Stockpile Footprint Basis:
+      Volume Range: 33000 - 43700 m3
+      Combined Format: 38370 +/- 5300 m3
+  - Max Heap Height: 22.26 m
+  - Mean Heap Height (mesh vertices above plane): 3.51 m
+
+5. Footprint & Height Consistency Analysis
+------------------------------------------
+  - Bounding Box Dimensions: 244.11m x 215.56m (Area: 52620.7 m2)
+  - Active Stockpile Footprint Area: 11401.3 m2
+  - Implied Average Height over Active Stockpile Footprint (Volume / Active Area): 3.37 m
+  - Implied Average Height over Bounding Box Footprint (Volume / BBox Area): 0.73 m
+  - Note: The implied average height over the active stockpile footprint (3.37 m)
+    is highly consistent with the mean stockpile height of 3.51 m. The bounding box average
+    is much smaller (0.73 m) because the bounding box contains large flat ground zones
+    outside the stockpile body that are sliced out during ground plane removal.
+
+6. Ground Plane Height Sensitivity Analysis (Active Mesh Slice)
+----------------------------------------------------------------
+  - Offset -10 cm: Volume = 39549.98 m3
+  - Offset -5 cm: Volume = 38949.99 m3
+  - Offset +0 cm: Volume = 38370.13 m3
+  - Offset +5 cm: Volume = 37809.51 m3
+  - Offset +10 cm: Volume = 37268.05 m3

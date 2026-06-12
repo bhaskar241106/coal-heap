@@ -1,0 +1,12 @@
+# Exclude large database and intermediate dense reconstruction files
+photogrammetry_v1/database.db
+photogrammetry_v1/dense/
+photogrammetry_v1/images/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
